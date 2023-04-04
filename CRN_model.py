@@ -91,7 +91,7 @@ class CRN_Model:
 
         return outcome_predictions
 
-    def train(self, dataset_train, dataset_val, model_name, model_folder):
+    def train(self, dataset_train, dataset_val, model_name, model_folder, b_gr_off):
         self.balancing_representation = self.build_balancing_representation()
         self.treatment_prob_predictions = self.build_treatment_assignments_one_hot(self.balancing_representation)
         self.predictions = self.build_outcomes(self.balancing_representation)
@@ -116,8 +116,11 @@ class CRN_Model:
         self.sess.run(tf.local_variables_initializer())
 
         for epoch in range(self.num_epochs):
-            p = float(epoch) / float(self.num_epochs)
-            alpha_current = 2. / (1. + np.exp(-10. * p)) - 1
+            if b_gr_off:
+                alpha_current = 0
+            else:
+                p = float(epoch) / float(self.num_epochs)
+                alpha_current = 2. / (1. + np.exp(-10. * p)) - 1
 
             iteration = 0
             for (batch_current_covariates, batch_previous_treatments, batch_current_treatments, batch_init_state,

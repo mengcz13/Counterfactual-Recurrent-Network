@@ -11,7 +11,7 @@ from CRN_model import CRN_Model
 
 def fit_CRN_decoder(dataset_train, dataset_val, model_name, model_dir,
                     encoder_hyperparams_file, decoder_hyperparams_file,
-                    b_hyperparam_opt):
+                    b_hyperparam_opt, b_debug, b_gr_off):
     logging.info("Fitting CRN decoder.")
 
     _, length, num_covariates = dataset_train['current_covariates'].shape
@@ -23,10 +23,10 @@ def fit_CRN_decoder(dataset_train, dataset_val, model_name, model_dir,
               'num_covariates': num_covariates,
               'num_outputs': num_outputs,
               'max_sequence_length': length,
-              'num_epochs': 100}
+              'num_epochs': 1 if b_debug else 100}
 
     hyperparams = dict()
-    num_simulations = 30
+    num_simulations = 3 if b_debug else 30
     best_validation_mse = 1000000
 
     with open(encoder_hyperparams_file, 'rb') as handle:
@@ -77,7 +77,7 @@ def fit_CRN_decoder(dataset_train, dataset_val, model_name, model_dir,
         write_results_to_file(decoder_hyperparams_file, best_hyperparams)
 
     model = CRN_Model(params, best_hyperparams, b_train_decoder=True)
-    model.train(dataset_train, dataset_val, model_name, model_dir)
+    model.train(dataset_train, dataset_val, model_name, model_dir, b_gr_off)
 
 
 def process_seq_data(data_map, states, projection_horizon):
@@ -205,7 +205,9 @@ def process_counterfactual_seq_test_data(test_data, data_map, states, projection
 def test_CRN_decoder(pickle_map, max_projection_horizon, projection_horizon, models_dir,
                      encoder_model_name, encoder_hyperparams_file,
                      decoder_model_name, decoder_hyperparams_file,
-                     b_decoder_hyperparm_tuning):
+                     b_decoder_hyperparm_tuning,
+                     b_debug,
+                     b_gr_off):
     training_data = pickle_map['training_data']
     validation_data = pickle_map['validation_data']
     scaling_data = pickle_map['scaling_data']
@@ -222,7 +224,9 @@ def test_CRN_decoder(pickle_map, max_projection_horizon, projection_horizon, mod
     fit_CRN_decoder(dataset_train=training_seq_processed, dataset_val=validation_seq_processed,
                     model_dir=models_dir,
                     model_name=decoder_model_name, encoder_hyperparams_file=encoder_hyperparams_file,
-                    decoder_hyperparams_file=decoder_hyperparams_file, b_hyperparam_opt=b_decoder_hyperparm_tuning)
+                    decoder_hyperparams_file=decoder_hyperparams_file, b_hyperparam_opt=b_decoder_hyperparm_tuning,
+                    b_debug=b_debug,
+                    b_gr_off=b_gr_off)
 
     test_data_seq_actions = pickle_map['test_data_seq']
     test_processed = get_processed_data(pickle_map['test_data_seq'], scaling_data)

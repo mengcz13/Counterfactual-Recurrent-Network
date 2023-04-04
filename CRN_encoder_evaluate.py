@@ -9,7 +9,7 @@ from utils.evaluation_utils import write_results_to_file, load_trained_model, ge
 
 
 def fit_CRN_encoder(dataset_train, dataset_val, model_name, model_dir, hyperparams_file,
-                    b_hyperparam_opt):
+                    b_hyperparam_opt, b_debug, b_gr_off):
     _, length, num_covariates = dataset_train['current_covariates'].shape
     num_treatments = dataset_train['current_treatments'].shape[-1]
     num_outputs = dataset_train['outputs'].shape[-1]
@@ -19,10 +19,10 @@ def fit_CRN_encoder(dataset_train, dataset_val, model_name, model_dir, hyperpara
               'num_covariates': num_covariates,
               'num_outputs': num_outputs,
               'max_sequence_length': length,
-              'num_epochs': 100}
+              'num_epochs': 1 if b_debug else 100}
 
     hyperparams = dict()
-    num_simulations = 50
+    num_simulations = 3 if b_debug else 50
     best_validation_mse = 1000000
 
     if b_hyperparam_opt:
@@ -39,7 +39,7 @@ def fit_CRN_encoder(dataset_train, dataset_val, model_name, model_dir, hyperpara
 
             logging.info("Current hyperparams used for training \n {}".format(hyperparams))
             model = CRN_Model(params, hyperparams)
-            model.train(dataset_train, dataset_val, model_name, model_dir)
+            model.train(dataset_train, dataset_val, model_name, model_dir, b_gr_off)
             validation_mse, _ = model.evaluate_predictions(dataset_val)
 
             if (validation_mse < best_validation_mse):
@@ -55,10 +55,11 @@ def fit_CRN_encoder(dataset_train, dataset_val, model_name, model_dir, hyperpara
 
     else:
         logging.info("Using default hyperparameters")
+        # best hparams for gamma=10
         best_hyperparams = {
             'rnn_hidden_units': 24,
             'br_size': 12,
-            'fc_hidden_units': 36,
+            'fc_hidden_units': 12,
             'learning_rate': 0.01,
             'batch_size': 128,
             'rnn_keep_prob': 0.9}
@@ -66,13 +67,15 @@ def fit_CRN_encoder(dataset_train, dataset_val, model_name, model_dir, hyperpara
         write_results_to_file(hyperparams_file, best_hyperparams)
 
     model = CRN_Model(params, best_hyperparams)
-    model.train(dataset_train, dataset_val, model_name, model_dir)
+    model.train(dataset_train, dataset_val, model_name, model_dir, b_gr_off)
 
 
 
 def test_CRN_encoder(pickle_map, models_dir,
                      encoder_model_name, encoder_hyperparams_file,
-                     b_encoder_hyperparm_tuning):
+                     b_encoder_hyperparm_tuning,
+                     b_debug,
+                     b_gr_off):
 
     training_data = pickle_map['training_data']
     validation_data = pickle_map['validation_data']
@@ -85,7 +88,9 @@ def test_CRN_encoder(pickle_map, models_dir,
 
     fit_CRN_encoder(dataset_train=training_processed, dataset_val=validation_processed,
                     model_name=encoder_model_name, model_dir=models_dir,
-                    hyperparams_file=encoder_hyperparams_file, b_hyperparam_opt=b_encoder_hyperparm_tuning)
+                    hyperparams_file=encoder_hyperparams_file, b_hyperparam_opt=b_encoder_hyperparm_tuning,
+                    b_debug=b_debug,
+                    b_gr_off=b_gr_off)
 
     CRN_encoder = load_trained_model(validation_processed, encoder_hyperparams_file, encoder_model_name, models_dir)
     mean_mse, mse = CRN_encoder.evaluate_predictions(test_processed)
